@@ -47,6 +47,7 @@ trait RecordedPathConditions {
   // If the heap does not contain a mapping for a snapshot(?) value, the path
   // condition must...? maybe
   def getEquivalentVariables(variable: Term, lenient: Boolean = false): Seq[Term] = {
+    println(s"assumptions: $assumptions")
     assumptions.foldRight[Seq[Term]](Seq.empty)((term, equivalentVars) => term match {
       case Equals(var1 @ Var(_, _), term2) if term2 == variable =>
         var1 +: equivalentVars

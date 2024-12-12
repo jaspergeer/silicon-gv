@@ -163,7 +163,8 @@ object chunkSupporter extends ChunkSupportRules with Immutable {
               if (id == c.id) {
                 // TODO;staticprofiling: this is responsible for the static profiling issue, maybe
                 statusCheckgv = v.decider.checkgv(s.isImprecise, And(c.args zip args map (x => x._1 === x._2)), Some(Verifier.config.checkTimeout())) match {
-                  case (status, runtimeCheck) => status
+                  case (status, runtimeCheck) =>
+                    status
                 }
               }
 
@@ -237,6 +238,7 @@ object chunkSupporter extends ChunkSupportRules with Immutable {
              generateChecks: Boolean = true)
             (Q: (State, Heap, Heap, Term, Verifier) => VerificationResult)
             : VerificationResult = {
+      println("lookup")
 //    executionFlowController.tryOrFail2[Heap, Term](s.copy(h = h), v)((s1, v1, QS) => {
       val s1 = stateConsolidator.consolidate(s.copy(h = h, optimisticHeap = oh), v)
       val lookupFunction =
@@ -306,6 +308,7 @@ object chunkSupporter extends ChunkSupportRules with Immutable {
 
           // this is the eval case for adding run-time checks
           case _ if s.isImprecise && addToOh =>
+            println("ChunkSupporter:309")
             resource match {
               case f: ast.Field => {
                 v.decider.assertgv(s.isImprecise, args.head !== Null()) {
@@ -381,6 +384,7 @@ object chunkSupporter extends ChunkSupportRules with Immutable {
 
           // this is the evalpc case for consume
           case _ if s.isImprecise && !addToOh && s.generateChecks =>
+            println("ChunkSupporter:385")
             resource match {
               case f: ast.Field => {
                 v.decider.assertgv(s.isImprecise, args.head !== Null()) {
@@ -438,6 +442,7 @@ object chunkSupporter extends ChunkSupportRules with Immutable {
 
           // this is the evalpc case for produce
           case _ if s.isImprecise && !addToOh && !s.generateChecks =>
+            println("ChunkSupporter:443")
             resource match {
               case f: ast.Field => {
                 val snap = v.decider.fresh(s"${args.head}.$id", v.symbolConverter.toSort(f.typ))

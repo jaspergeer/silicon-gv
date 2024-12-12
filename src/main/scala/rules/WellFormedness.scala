@@ -43,6 +43,7 @@ object wellFormedness extends WellFormednessRules with Immutable {
     // val sepIdentifier = SymbExLogger.currentLog().insert(new WellformednessRecord(viper.silicon.utils.ast.BigAnd(e), s, v.decider.pcs))
     produce(s, sf, viper.silicon.utils.ast.BigAnd(e), pve, v)((s1, v1) =>
       produce(s, sf, viper.silicon.utils.ast.BigAnd(e), pve, v1)((s2, v2) => {
+        print("produce part TWO")
         // SymbExLogger.currentLog().collapse( viper.silicon.utils.ast.BigAnd(e), sepIdentifier) //TODO: fix type mismatch
         Q(s2, v2)}))
   }

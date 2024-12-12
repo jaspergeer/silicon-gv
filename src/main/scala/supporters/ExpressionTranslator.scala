@@ -192,7 +192,7 @@ trait ExpressionTranslator {
       case     _: ast.ImpreciseExp //Imprecise expressions are "unsupported" and "unexpected" here
              | _: ast.LocationAccess
              | _: ast.AccessPredicate
-             | _: ast.Old
+             | _: ast.Old // TODO Jasper: possible source of errors?
              | _: ast.LabelledOld
              | _: ast.FractionalPerm
              | _: ast.Result

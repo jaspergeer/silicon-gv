@@ -210,13 +210,16 @@ object producer extends ProductionRules with Immutable {
     val Q: (State, Verifier) => VerificationResult = (state, verifier) =>
       continuation(if (state.exhaleExt) state.copy(reserveHeaps = state.h +: state.reserveHeaps.drop(1)) else state, verifier)
 
+    println(s"\nPRODUCE ${viper.silicon.utils.ast.sourceLineColumn(a)}: $a")
     val produced = a match {
 
       // TODO: figure out how imprecise deals with snapshots - J
+      // TODO Jasper: is this the culprit?
       case impr @ ast.ImpreciseExp(e) =>
-      //  val (sf0, sf1) = v.snapshotSupporter.createSnapshotPair(s, sf, a, a, v)
+        val (sf0, sf1) = v.snapshotSupporter.createSnapshotPair(s, sf, a, a, v)
         val second = toSf(Second(sf(sorts.Snap, v)))
         produce(s.copy(isImprecise = true), second, e, pve, v)(Q)
+//        produce(s, second, e, pve, v)(Q) // TODO Jasper: No error if we do this instead
 
 /*      case imp @ ast.Implies(e0, a0) if !a.isPure =>
         val impLog = new GlobalBranchRecord(imp, s, v.decider.pcs, "produce")

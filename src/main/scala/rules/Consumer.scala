@@ -100,6 +100,7 @@ object consumer extends ConsumptionRules with Immutable {
               (Q: (State, Term, Verifier) => VerificationResult)
               : VerificationResult = {
 
+//    val s = s0.copy(isImprecise = false)
     val allTlcs = mutable.ListBuffer[ast.Exp]()
     val allPves = mutable.ListBuffer[PartialVerificationError]()
 
@@ -229,10 +230,11 @@ object consumer extends ConsumptionRules with Immutable {
       Q(s2, oh2, h2, snap2, v1)})
   }
 
+  // TODO Jasper: setting isImprecise to false here prevents the error
   private def consumeTlc(s: State, impr: Boolean, oh: Heap, h: Heap, a: ast.Exp, pve: PartialVerificationError, v: Verifier)
                         (Q: (State, Heap, Heap, Term, Verifier) => VerificationResult)
                         : VerificationResult = {
-    
+
     /* ATTENTION: Expressions such as `perm(...)` must be evaluated in-place,
      * i.e. in the partially consumed heap which is denoted by `h` here. The
      * evaluator evaluates such expressions in the heap
@@ -641,6 +643,7 @@ object consumer extends ConsumptionRules with Immutable {
 
                   // don't know if this should be s3 or s4 - J
                   if (s4.isImprecise) {
+                    println("Consumer: 646")
                     chunkSupporter.consume(s4, oh, false, resource, tArgs, loss, ve, v3, description)((s5, oh1, snap2, v4, chunkExisted1) => {
                       
                       if (!chunkExisted && !chunkExisted1) {
@@ -872,6 +875,7 @@ object consumer extends ConsumptionRules with Immutable {
 
                 if (s1.generateChecks) {
                   runtimeChecks.addChecks(runtimeCheckAstNode,
+                    // TODO Jasper: problem child here
                     (new Translator(s1.copy(g = g), pcs).translate(returnedChecks) match {
                       case None => sys.error("Error translating! Exiting safely.")
                       case Some(expr) => expr

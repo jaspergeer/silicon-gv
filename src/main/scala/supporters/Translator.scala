@@ -4,6 +4,7 @@ import viper.silver.ast
 import viper.silicon.decider.RecordedPathConditions
 import viper.silicon.state.{BasicChunk, Identifier, State, Store, terms}
 import viper.silicon.resources.{FieldID, PredicateID}
+import viper.silver.ast.{NoInfo, NoPosition, NoTrafos}
 
 // should we use the path conditions from the state?
 final class Translator(s: State, pcs: RecordedPathConditions) {
@@ -12,9 +13,9 @@ final class Translator(s: State, pcs: RecordedPathConditions) {
   // this is, to some extent, a stub method currently
   def translate(t: terms.Term): Option[ast.Exp] = {
     t match {
-      case terms.Null()        => Some(ast.NullLit()())
-      case terms.False()       => Some(ast.FalseLit()())
-      case terms.True()        => Some(ast.TrueLit()())
+      case terms.Null() => Some(ast.NullLit()())
+      case terms.False() => Some(ast.FalseLit()())
+      case terms.True() => Some(ast.TrueLit()())
       case terms.IntLiteral(i) => Some(ast.IntLit(i)())
       case terms.Plus(t0, t1) =>
         (translate(t0), translate(t1)) match {
@@ -126,7 +127,11 @@ final class Translator(s: State, pcs: RecordedPathConditions) {
           }
           case _ => selectShortestField(variableResolver(terms.Var(name, sort)))
         }
+      case terms.App(fun, ts) =>
+        Some(ast.FuncApp(fun.id.name, ts.flatMap(translate))(NoPosition, NoInfo, typeOfSort(fun.resultSort), NoTrafos))
+      case terms.Unit => None
       case terms.SortWrapper(t, sort) =>
+        // TODO Jasper: here is the problem
         Some(variableResolver(terms.SortWrapper(t, sort))(0))
       // how do we deal with snapshots? we need not {
       //
@@ -171,6 +176,16 @@ final class Translator(s: State, pcs: RecordedPathConditions) {
     }
   }
 
+  private def typeOfSort(sort: terms.Sort): ast.Type = {
+    sort match {
+      case terms.sorts.Int => ast.Int
+      case terms.sorts.Bool => ast.Bool
+      case terms.sorts.Ref => ast.Ref
+      case terms.sorts.Perm => ast.Perm
+      case _ => sys.error(s"Unable to match type for ${sort}!")
+    }
+  }
+
   private def resolveType(variable: terms.Term): ast.Type = {
     variable match {
       case terms.Var(_, terms.sorts.Int) |
@@ -189,9 +204,12 @@ final class Translator(s: State, pcs: RecordedPathConditions) {
     }
   }
 
+  // TODO Jasper: is this is the valuation for symbolic variables?
   // TODO: the invocation of getAccessibilityPredicates seems a bit wrong
   // TODO: make brancher translate its input (at the branch site)
   private def variableResolver(variable: terms.Term, lenient: Boolean = false): Seq[ast.Exp] = {
+    print("resolve: ")
+    println(variable)
 
     // if we're already translating this variable
     if (translatingVars.exists(t => t.toString == variable.toString && t.sort == variable.sort) && !translatingRegexSingleton)
@@ -205,12 +223,15 @@ final class Translator(s: State, pcs: RecordedPathConditions) {
       (s.h + s.optimisticHeap).getChunksForValue(variable, lenient)
     val pcsEquivalentVariables: Seq[terms.Term] =
       pcs.getEquivalentVariables(variable, lenient) :+ variable
-    
+
+    println(s"pcs equiv: $pcsEquivalentVariables")
+
     pcsEquivalentVariables.foldRight[Seq[ast.Exp]](Seq())(
       (term, candidateResolvedVariables) =>
           if (translatingVars.exists(t => t.toString == term.toString && t.sort == term.sort)) {
             candidateResolvedVariables
           } else {
+            println(s"term: $term")
             translatingVars = translatingVars :+ term
             // Attempt normal variable resolution (looking in
             // both heaps, followed by the store)
@@ -224,12 +245,14 @@ final class Translator(s: State, pcs: RecordedPathConditions) {
               //
               // Use caution here!
               case None => {
+                println("NONE")
                 regexVariableResolver(term) match {
                   case Some(resolvedVariable) => {
                     translatingVars = translatingVars.filter(v => v != term)
                     resolvedVariable +: candidateResolvedVariables
                   }
                   case None => {
+                    println("NONE")
                     translatingVars = translatingVars.filter(v => v != term)
                     candidateResolvedVariables
                   }

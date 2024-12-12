@@ -460,6 +460,7 @@ object executor extends ExecutionRules with Immutable {
     stmt match {
       case _: ast.Seqn =>
       case _ =>
+        println(s"\nEXECUTE ${viper.silicon.utils.ast.sourceLineColumn(stmt)}: $stmt")
         v.logger.debug(s"\nEXECUTE ${viper.silicon.utils.ast.sourceLineColumn(stmt)}: $stmt")
         v.logger.debug(v.stateFormatter.format(s, v.decider.pcs))
         if (s.reserveHeaps.nonEmpty)
@@ -472,11 +473,9 @@ object executor extends ExecutionRules with Immutable {
       case ast.Seqn(stmts, _) =>
         execs(s, stmts, v)(Q)
 
-      /*
       case ast.Label(name, _) =>
         val s1 = s.copy(oldHeaps = s.oldHeaps + (name -> magicWandSupporter.getEvalHeap(s)))
         Q(s1, v)
-      */
 
       case ast.LocalVarDeclStmt(decl) =>
         val x = decl.localVar

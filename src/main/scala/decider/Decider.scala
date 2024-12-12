@@ -235,6 +235,8 @@ trait DefaultDeciderProvider extends VerifierComponent { this: Verifier =>
 
       } else if(isImprecise && !(deciderAssert(Not(t), timeout))) { //Make sure this part is correct
 
+        // TODO Jasper: returning non-none here causes problems
+//        (true, None)
         (true, Some(TermDifference.termDifference(this, t, asserting)))
 
       } else {

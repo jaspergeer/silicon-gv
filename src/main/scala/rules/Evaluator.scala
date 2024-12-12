@@ -173,7 +173,9 @@ object evaluator extends EvaluationRules with Immutable {
                     reserveHeaps = Nil,
                     exhaleExt = false)
 
+    println(s"\nEVAL ${viper.silicon.utils.ast.sourceLineColumn(e)}: $e")
     eval2(s1, e, pve, v)((s2, t, v1) => {
+      println(s"\nEND EVAL ${viper.silicon.utils.ast.sourceLineColumn(e)}: $e")
       val s3 =
         if (s2.recordPossibleTriggers)
           e match {
@@ -203,6 +205,7 @@ object evaluator extends EvaluationRules with Immutable {
             | _: ast.WildcardPerm | _: ast.FieldAccess =>
 
       case _ =>
+        println(s"\nEVAL ${viper.silicon.utils.ast.sourceLineColumn(e)}: $e")
         v.logger.debug(s"\nEVAL ${viper.silicon.utils.ast.sourceLineColumn(e)}: $e")
         v.logger.debug(v.stateFormatter.format(s, v.decider.pcs))
         if (s.partiallyConsumedHeap.nonEmpty)
@@ -355,7 +358,8 @@ object evaluator extends EvaluationRules with Immutable {
                     Q(s2, smLookup, v1)}
                 }
           //})
-        } else {
+        } else { // TODO Jasper: Field Access
+//          eval2(s, ast.FalseLit()(), pve, v)(Q)
           evalLocationAccess(s, fa, pve, v)((s1, _, tArgs, v1) => {
             val ve = pve dueTo InsufficientPermission(fa)
             val resource = fa.res(Verifier.program)
@@ -376,10 +380,10 @@ object evaluator extends EvaluationRules with Immutable {
         eval(s, e0, pve, v)((s1, t0, v1) =>
           Q(s1, Minus(0, t0), v1))
 
-      /*
       case ast.Old(e0) =>
         evalInOldState(s, Verifier.PRE_STATE_LABEL, e0, pve, v)(Q)
 
+    /*
       case old @ ast.LabelledOld(e0, lbl) =>
         s.oldHeaps.get(lbl) match {
           case None =>
@@ -713,7 +717,7 @@ object evaluator extends EvaluationRules with Immutable {
 
             val tQuant = Quantification(qantOp, tVars, tBody, tTriggers, name)
             Q(s1, tQuant, v1)}
-
+*/
       case fapp @ ast.FuncApp(funcName, eArgs) =>
         val func = Verifier.program.findFunction(funcName)
         val s0 = s.copy(hackIssue387DisablePermissionConsumption = Verifier.config.enableMoreCompleteExhale())
@@ -862,6 +866,7 @@ object evaluator extends EvaluationRules with Immutable {
           Q(s, unknownValue, v)
         }
 
+      /*
       case ast.Applying(wand, eIn) =>
         joiner.join[Term, Term](s, v)((s1, v1, QB) =>
           magicWandSupporter.applyWand(s1, wand, pve, v1)((s2, v2) => {
@@ -1112,7 +1117,7 @@ object evaluator extends EvaluationRules with Immutable {
                     Q(s2, smLookup, v1)}
                 }
           //})
-        } else {
+        } else { // Jasper: here is the case we actually care about
           evalLocationAccesspc(s, fa, pve, v, generateChecks)((s1, _, tArgs, v1) => {
             val ve = pve dueTo InsufficientPermission(fa)
             val resource = fa.res(Verifier.program)
@@ -1178,10 +1183,21 @@ object evaluator extends EvaluationRules with Immutable {
         evalpc(s, e0, pve, v, generateChecks)((s1, t0, v1) =>
           Q(s1, Minus(0, t0), v1))
 
-      /*
       case ast.Old(e0) =>
-        evalInOldState(s, Verifier.PRE_STATE_LABEL, e0, pve, v)(Q)
+        print("OLD: ")
+        println(e0)
+        // TODO Jasper: This is the culprit
+        evalInOldState(s, Verifier.PRE_STATE_LABEL, e0, pve, v)(
+          (x, y, z) => {
+            print("END OLD: ")
+            println(y)
+            Q(x, y , z)})
+//        eval(s, e0, pve, v)(
+//          (x, y, z) => {
+//            println(y)
+//            Q(x, y , z)})
 
+    /*
       case old @ ast.LabelledOld(e0, lbl) =>
         s.oldHeaps.get(lbl) match {
           case None =>
@@ -1535,10 +1551,12 @@ object evaluator extends EvaluationRules with Immutable {
             val tQuant = Quantification(qantOp, tVars, tBody, tTriggers, name)
             Q(s1, tQuant, v1)}
 
+       */
+
       case fapp @ ast.FuncApp(funcName, eArgs) =>
         val func = Verifier.program.findFunction(funcName)
         val s0 = s.copy(hackIssue387DisablePermissionConsumption = Verifier.config.enableMoreCompleteExhale())
-        evals2pc(s0, eArgs, Nil, _ => pve, v)((s1, tArgs, v1) => {
+        evals2pc(s0, eArgs, Nil, _ => pve, v, generateChecks)((s1, tArgs, v1) => {
 //          bookkeeper.functionApplications += 1
           val joinFunctionArgs = tArgs //++ c2a.quantifiedVariables.filterNot(tArgs.contains)
           /* TODO: Does it matter that the above filterNot does not filter out quantified
@@ -1639,8 +1657,8 @@ object evaluator extends EvaluationRules with Immutable {
                 case true =>
                   joiner.join[Term, Term](s2, v2)((s3, v3, QB) => {
                     val s4 = s3.incCycleCounter(predicate)
-                               .copy(recordVisited = true
-                                 forFraming = true)
+                               .copy(recordVisited = true)
+                                // TODO Jasper: took out "forFraming = true"
                       /* [2014-12-10 Malte] The commented code should replace the code following
                        * it, but using it slows down RingBufferRd.sil significantly. The generated
                        * Z3 output looks nearly identical, so my guess is that it is some kind
@@ -1685,6 +1703,7 @@ object evaluator extends EvaluationRules with Immutable {
           Q(s, unknownValue, v)
         }
 
+      /*
       case ast.Applying(wand, eIn) =>
         joiner.join[Term, Term](s, v)((s1, v1, QB) =>
           magicWandSupporter.applyWand(s1, wand, pve, v1)((s2, v2) => {
@@ -1891,11 +1910,15 @@ object evaluator extends EvaluationRules with Immutable {
                             (Q: (State, Term, Verifier) => VerificationResult)
                             : VerificationResult = {
 
+    // TODO Jasper: it has something to do with us switching to the old heap here
+    println(s.oldHeaps)
     val h = s.oldHeaps(label)
+//    val h = s.h
     val s1 = s.copy(h = h, partiallyConsumedHeap = None)
     val s2 = stateConsolidator.consolidateIfRetrying(s1, v)
 
     eval(s2, e, pve, v)((s3, t, v1) => {
+      println(s"produced: $t")
       val s4 = s3.copy(h = s.h,
                        oldHeaps = s3.oldHeaps + (label -> s3.h),
                        partiallyConsumedHeap = s.partiallyConsumedHeap)
@@ -1908,9 +1931,10 @@ object evaluator extends EvaluationRules with Immutable {
                          v: Verifier)
                         (Q: (State, String, Seq[Term], Verifier) => VerificationResult)
                         : VerificationResult = {
-
     locacc match {
       case ast.FieldAccess(eRcvr, field) =>
+        print("field access: ")
+        println(locacc)
         eval(s, eRcvr, pve, v)((s1, tRcvr, v1) =>
           Q(s1, field.name, tRcvr :: Nil, v1))
       case ast.PredicateAccess(eArgs, predicateName) =>

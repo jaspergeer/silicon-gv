@@ -3,6 +3,7 @@ package viper.silicon.supporters
 import viper.silicon.state.terms
 import viper.silicon.state.profilingInfo
 import viper.silicon.decider.Decider
+import viper.silicon.state.terms.True
 import viper.silicon.verifier.Verifier
 
 object TermDifference {
@@ -60,6 +61,7 @@ object TermDifference {
     case terms.Var(name, sort) => terms.Var(name, sort)
     case terms.SortWrapper(_, _) if excludedTerms.contains("SortWrapper") => expansionPhase(term)
     case terms.SortWrapper(t, sort) => terms.SortWrapper(visitor(expansionPhase, excludedTerms, t), sort)
+    case terms.App(app, ts) => terms.App(app, ts.map(visitor(expansionPhase, excludedTerms, _))) // TODO Jasper: check if this is right
   }
 
   def eliminateImplications(symbolicValue: terms.Term): terms.Term = symbolicValue match {
