@@ -643,7 +643,6 @@ object consumer extends ConsumptionRules with Immutable {
 
                   // don't know if this should be s3 or s4 - J
                   if (s4.isImprecise) {
-                    println("Consumer: 646")
                     chunkSupporter.consume(s4, oh, false, resource, tArgs, loss, ve, v3, description)((s5, oh1, snap2, v4, chunkExisted1) => {
                       
                       if (!chunkExisted && !chunkExisted1) {

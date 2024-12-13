@@ -2,8 +2,9 @@ package viper.silicon.supporters
 
 import viper.silver.ast
 import viper.silicon.decider.RecordedPathConditions
-import viper.silicon.state.{BasicChunk, Identifier, State, Store, terms}
+import viper.silicon.state.{BasicChunk, Heap, Identifier, State, Store, terms}
 import viper.silicon.resources.{FieldID, PredicateID}
+import viper.silicon.verifier.Verifier
 import viper.silver.ast.{NoInfo, NoPosition, NoTrafos}
 
 // should we use the path conditions from the state?
@@ -132,6 +133,7 @@ final class Translator(s: State, pcs: RecordedPathConditions) {
       case terms.Unit => None
       case terms.SortWrapper(t, sort) =>
         // TODO Jasper: here is the problem
+        println(s"problem oldHeaps: ${s.oldHeaps}")
         Some(variableResolver(terms.SortWrapper(t, sort))(0))
       // how do we deal with snapshots? we need not {
       //
@@ -219,12 +221,45 @@ final class Translator(s: State, pcs: RecordedPathConditions) {
 
     // Retrieve aliasing information; add our
     // input variable to it
-    val heapAliases: Seq[(terms.Term, String)] =
+    val heapAliases: Seq[(terms.Term, String, terms.Sort)] =
       (s.h + s.optimisticHeap).getChunksForValue(variable, lenient)
+    val oldHeapAliases = s.oldHeaps.getOrElse(Verifier.PRE_STATE_LABEL, Heap()).getChunksForValue(variable, lenient)
     val pcsEquivalentVariables: Seq[terms.Term] =
       pcs.getEquivalentVariables(variable, lenient) :+ variable
 
     println(s"pcs equiv: $pcsEquivalentVariables")
+
+    def resolveFromAlias(alias: (terms.Term, String, terms.Sort), candidateResolvedVariables: Seq[ast.Exp]) = {
+      println(s"ALIAS: ${alias}")
+      if (translatingVars.exists(t => t.toString == alias._1.toString && t.sort == alias._1.sort)) {
+        candidateResolvedVariables
+      } else {
+        translatingVars = translatingVars :+ alias._1
+        // Attempt normal variable resolution (looking in
+        // both heaps, followed by the store)
+        regularVariableResolver(alias._1) match {
+          case Some(resolvedVariable) => {
+            translatingVars = translatingVars.filter(v => v != alias._1)
+            ast.FieldAccess(resolvedVariable, ast.Field(alias._2, typeOfSort(alias._3))())() +: candidateResolvedVariables
+          }
+          // Attempt regex variable resolution (we only look
+          // in the store; the rest is constructed via a regex)
+          case None => {
+            regexVariableResolver(alias._1) match {
+              case Some(resolvedVariable) => {
+                translatingVars = translatingVars.filter(v => v != alias._1)
+                ast.FieldAccess(resolvedVariable, ast.Field(alias._2, typeOfSort(alias._3))())() +: candidateResolvedVariables
+              }
+              case None => {
+                translatingVars = translatingVars.filter(v => v != alias._1)
+                candidateResolvedVariables
+              }
+            }
+          }
+        }
+      }
+    }
+
 
     pcsEquivalentVariables.foldRight[Seq[ast.Exp]](Seq())(
       (term, candidateResolvedVariables) =>
@@ -262,36 +297,8 @@ final class Translator(s: State, pcs: RecordedPathConditions) {
           }
     ) ++ {
       translatingVars = translatingVars :+ variable
-      heapAliases.foldRight[Seq[ast.Exp]](Seq())(
-        (alias, candidateResolvedVariables) =>
-          if (translatingVars.exists(t => t.toString == alias._1.toString && t.sort == alias._1.sort)) {
-            candidateResolvedVariables
-          } else {
-            translatingVars = translatingVars :+ alias._1
-            // Attempt normal variable resolution (looking in
-            // both heaps, followed by the store)
-            regularVariableResolver(alias._1) match {
-              case Some(resolvedVariable) => {
-                translatingVars = translatingVars.filter(v => v != alias._1)
-                ast.FieldAccess(resolvedVariable, ast.Field(alias._2, resolveType(alias._1))())() +: candidateResolvedVariables
-              }
-              // Attempt regex variable resolution (we only look
-              // in the store; the rest is constructed via a regex)
-              case None => {
-                regexVariableResolver(alias._1) match {
-                  case Some(resolvedVariable) => {
-                    translatingVars = translatingVars.filter(v => v != alias._1)
-                    ast.FieldAccess(resolvedVariable, ast.Field(alias._2, resolveType(alias._1))())() +: candidateResolvedVariables
-                  }
-                  case None => {
-                    translatingVars = translatingVars.filter(v => v != alias._1)
-                    candidateResolvedVariables
-                  }
-                }
-              }
-            }
-          }
-          )
+      heapAliases.foldRight[Seq[ast.Exp]](Seq())(resolveFromAlias) ++
+        oldHeapAliases.foldRight[Seq[ast.Exp]](Seq())(resolveFromAlias).map(ast.Old(_)())
     } match {
       case Seq() => {
         translatingVars = translatingVars.filter(v => v != variable)
@@ -337,14 +344,14 @@ final class Translator(s: State, pcs: RecordedPathConditions) {
               case Some((symVar, id)) =>
                 variableResolver(symVar) match {
                   case Seq() => None
-                  case resolvedVariables =>
+                  case resolvedVariables if resolvedVariables.size > 0 =>
                     Some(ast.FieldAccess(resolvedVariables(0), ast.Field(id, varType)())())
                 }
             }
           case Some((symVar, id)) =>
             variableResolver(symVar) match {
               case Seq() => None
-              case resolvedVariables =>
+              case resolvedVariables if resolvedVariables.size > 0 =>
                 Some(ast.FieldAccess(resolvedVariables(0), ast.Field(id, varType)())())
             }
         }

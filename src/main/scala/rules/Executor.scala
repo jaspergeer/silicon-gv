@@ -460,7 +460,6 @@ object executor extends ExecutionRules with Immutable {
     stmt match {
       case _: ast.Seqn =>
       case _ =>
-        println(s"\nEXECUTE ${viper.silicon.utils.ast.sourceLineColumn(stmt)}: $stmt")
         v.logger.debug(s"\nEXECUTE ${viper.silicon.utils.ast.sourceLineColumn(stmt)}: $stmt")
         v.logger.debug(v.stateFormatter.format(s, v.decider.pcs))
         if (s.reserveHeaps.nonEmpty)

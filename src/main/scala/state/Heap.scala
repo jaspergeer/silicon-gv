@@ -15,7 +15,7 @@ trait Heap {
   def +(other: Heap): Heap
   def -(chunk: Chunk): Heap
   def getChunkForValue(value: Term, lenient: Boolean = false): Option[(Term, String)]
-  def getChunksForValue(value: Term, lenient: Boolean = false): Seq[(Term, String)]
+  def getChunksForValue(value: Term, lenient: Boolean = false): Seq[(Term, String, terms.Sort)]
 }
 
 trait HeapFactory[H <: Heap] {
@@ -33,6 +33,7 @@ final class ListBackedHeap private[state] (chunks: Vector[Chunk])
 
   def values = chunks
 
+  // TODO Jasper: keep an eye on this one
   def getChunkForValue(value: Term, lenient: Boolean = false): Option[(Term, String)] = {
     chunks.find(chunk => {
       chunk match {
@@ -51,21 +52,23 @@ final class ListBackedHeap private[state] (chunks: Vector[Chunk])
     }
   }
 
-  def getChunksForValue(value: Term, lenient: Boolean = false): Seq[(Term, String)] = {
+  def getChunksForValue(value: Term, lenient: Boolean = false): Seq[(Term, String, terms.Sort)] = {
     chunks.filter(chunk => {
       chunk match {
         case BasicChunk(resourceID, id, args, snap, perm) => {
+          println(s"value: $value chunk-id: $id chunk-args: $args chunk-snap: $snap")
           if (snap != value && lenient) {
             snap.toString == value.toString && snap.sort == value.sort
           } else {
+            println(s"mismatch $id")
             snap == value
           }
         }
         case _ => sys.error(s"The chunk type ${chunk} is not supported yet!")
       }
-    }).foldLeft(Seq[(Term, String)]()) { (foundChunks, foundChunk) =>
+    }).foldLeft(Seq[(Term, String, terms.Sort)]()) { (foundChunks, foundChunk) =>
       foundChunk match {
-        case BasicChunk(resourceID, id, args, snap, perm) => foundChunks :+ (args.head, id.toString)
+        case BasicChunk(resourceID, id, args, snap, perm) => foundChunks :+ (args.head, id.toString, snap.sort)
         case _ => foundChunks
       }
     }

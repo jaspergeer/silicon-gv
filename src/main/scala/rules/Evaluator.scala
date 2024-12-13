@@ -173,9 +173,7 @@ object evaluator extends EvaluationRules with Immutable {
                     reserveHeaps = Nil,
                     exhaleExt = false)
 
-    println(s"\nEVAL ${viper.silicon.utils.ast.sourceLineColumn(e)}: $e")
     eval2(s1, e, pve, v)((s2, t, v1) => {
-      println(s"\nEND EVAL ${viper.silicon.utils.ast.sourceLineColumn(e)}: $e")
       val s3 =
         if (s2.recordPossibleTriggers)
           e match {
@@ -205,7 +203,6 @@ object evaluator extends EvaluationRules with Immutable {
             | _: ast.WildcardPerm | _: ast.FieldAccess =>
 
       case _ =>
-        println(s"\nEVAL ${viper.silicon.utils.ast.sourceLineColumn(e)}: $e")
         v.logger.debug(s"\nEVAL ${viper.silicon.utils.ast.sourceLineColumn(e)}: $e")
         v.logger.debug(v.stateFormatter.format(s, v.decider.pcs))
         if (s.partiallyConsumedHeap.nonEmpty)
@@ -1184,12 +1181,9 @@ object evaluator extends EvaluationRules with Immutable {
           Q(s1, Minus(0, t0), v1))
 
       case ast.Old(e0) =>
-        print("OLD: ")
-        println(e0)
         // TODO Jasper: This is the culprit
         evalInOldState(s, Verifier.PRE_STATE_LABEL, e0, pve, v)(
           (x, y, z) => {
-            print("END OLD: ")
             println(y)
             Q(x, y , z)})
 //        eval(s, e0, pve, v)(
@@ -1911,14 +1905,12 @@ object evaluator extends EvaluationRules with Immutable {
                             : VerificationResult = {
 
     // TODO Jasper: it has something to do with us switching to the old heap here
-    println(s.oldHeaps)
     val h = s.oldHeaps(label)
 //    val h = s.h
     val s1 = s.copy(h = h, partiallyConsumedHeap = None)
     val s2 = stateConsolidator.consolidateIfRetrying(s1, v)
 
     eval(s2, e, pve, v)((s3, t, v1) => {
-      println(s"produced: $t")
       val s4 = s3.copy(h = s.h,
                        oldHeaps = s3.oldHeaps + (label -> s3.h),
                        partiallyConsumedHeap = s.partiallyConsumedHeap)
@@ -1933,8 +1925,6 @@ object evaluator extends EvaluationRules with Immutable {
                         : VerificationResult = {
     locacc match {
       case ast.FieldAccess(eRcvr, field) =>
-        print("field access: ")
-        println(locacc)
         eval(s, eRcvr, pve, v)((s1, tRcvr, v1) =>
           Q(s1, field.name, tRcvr :: Nil, v1))
       case ast.PredicateAccess(eArgs, predicateName) =>
