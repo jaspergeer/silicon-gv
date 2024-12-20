@@ -129,11 +129,11 @@ final class Translator(s: State, pcs: RecordedPathConditions) {
           case _ => selectShortestField(variableResolver(terms.Var(name, sort)))
         }
       case terms.App(fun, ts) =>
+        println(s"app: $t")
         Some(ast.FuncApp(fun.id.name, ts.flatMap(translate))(NoPosition, NoInfo, typeOfSort(fun.resultSort), NoTrafos))
       case terms.Unit => None
       case terms.SortWrapper(t, sort) =>
         // TODO Jasper: here is the problem
-        println(s"problem oldHeaps: ${s.oldHeaps}")
         Some(variableResolver(terms.SortWrapper(t, sort))(0))
       // how do we deal with snapshots? we need not {
       //
@@ -145,10 +145,10 @@ final class Translator(s: State, pcs: RecordedPathConditions) {
       // these cases only exist to prevent the translator from crashing during
       // testing; the translator is tested on the path condition, which
       // includes snapshot terms
-      // case terms.Unit          => None
-      // case terms.First(_)      => None
-      // case terms.Second(_)     => None
-      // case terms.Combine(_, _) => None
+      case terms.Unit          => None
+      case terms.First(_)      => None
+      case terms.Second(_)     => None
+      case terms.Combine(_, _) => None
       // }
       case _ => sys.error(s"Unable to translate ${t}")
     }

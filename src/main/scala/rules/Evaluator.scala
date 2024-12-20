@@ -8,7 +8,7 @@ package viper.silicon.rules
 
 import viper.silver.ast
 import viper.silver.ast.utils.conjunctExps
-import viper.silver.ast.{Info, PredicateAccess}
+import viper.silver.ast.{Info, NoInfo, PredicateAccess}
 import viper.silver.verifier.{CounterexampleTransformer, PartialVerificationError}
 import viper.silver.verifier.errors.{ErrorWrapperWithExampleTransformer, PreconditionInAppFalse}
 import viper.silver.verifier.reasons._
@@ -27,7 +27,7 @@ import viper.silicon.verifier.Verifier
 import viper.silicon.{Map, TriggerSets}
 import viper.silicon.interfaces.state.{ChunkIdentifer, NonQuantifiedChunk}
 import viper.silicon.logger.SymbExLogger
-import viper.silicon.logger.records.data.{EvaluateRecord, EvaluatePCRecord}
+import viper.silicon.logger.records.data.{EvaluatePCRecord, EvaluateRecord}
 
 /* TODO: With the current design w.r.t. parallelism, eval should never "move" an execution
  *       to a different verifier. Hence, consider not passing the verifier to continuations
@@ -418,10 +418,11 @@ object evaluator extends EvaluationRules with Immutable {
         eval(s, e0, pve, v)((s1, t0, v1) =>
           evalImplies(s1, t0, e1, implies.info == FromShortCircuitingAnd, pve, v1)(Q))
 
+       */
       case ast.CondExp(e0, e1, e2) =>
         eval(s, e0, pve, v)((s1, t0, v1) =>
           joiner.join[Term, Term](s1, v1)((s2, v2, QB) =>
-            brancher.branch(s2, t0, v2)(
+            brancher.branch(s2, t0, e0, None, v2)(
               (s3, v3) => eval(s3, e1, pve, v3)(QB),
               (s3, v3) => eval(s3, e2, pve, v3)(QB))
           )(entries => {
@@ -436,7 +437,6 @@ object evaluator extends EvaluationRules with Immutable {
                 sys.error(s"Unexpected join data entries: $entries")}
             (s2, result)
           })(Q))
-       */
 
       /* Integers */
 
