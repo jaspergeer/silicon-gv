@@ -56,11 +56,9 @@ final class ListBackedHeap private[state] (chunks: Vector[Chunk])
     chunks.filter(chunk => {
       chunk match {
         case BasicChunk(resourceID, id, args, snap, perm) => {
-          println(s"value: $value chunk-id: $id chunk-args: $args chunk-snap: $snap")
           if (snap != value && lenient) {
             snap.toString == value.toString && snap.sort == value.sort
           } else {
-            println(s"mismatch $id")
             snap == value
           }
         }

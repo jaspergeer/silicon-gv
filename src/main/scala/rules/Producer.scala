@@ -210,7 +210,6 @@ object producer extends ProductionRules with Immutable {
     val Q: (State, Verifier) => VerificationResult = (state, verifier) =>
       continuation(if (state.exhaleExt) state.copy(reserveHeaps = state.h +: state.reserveHeaps.drop(1)) else state, verifier)
 
-    println(s"\nPRODUCE ${viper.silicon.utils.ast.sourceLineColumn(a)}: $a")
     val produced = a match {
 
       // TODO: figure out how imprecise deals with snapshots - J

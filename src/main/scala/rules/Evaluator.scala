@@ -1184,7 +1184,6 @@ object evaluator extends EvaluationRules with Immutable {
         // TODO Jasper: This is the culprit
         evalInOldState(s, Verifier.PRE_STATE_LABEL, e0, pve, v)(
           (x, y, z) => {
-            println(y)
             Q(x, y , z)})
 //        eval(s, e0, pve, v)(
 //          (x, y, z) => {

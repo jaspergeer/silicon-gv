@@ -178,7 +178,6 @@ object predicateSupporter extends PredicateSupportRules with Immutable {
           profilingInfo.incrementTotalConjuncts
 
           if (s4.isImprecise) {
-            println("imprecise")
             // and then we attempt to consume it from the optimistic heap
             chunkSupporter.consume(s4, s4.optimisticHeap, false, predicate, tArgs, s4.permissionScalingFactor, ve, v1, description)((s5, oh1, snap2, v2, chunkExisted1) => {
               if (!chunkExisted && !chunkExisted1) {

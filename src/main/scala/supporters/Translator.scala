@@ -2,17 +2,23 @@ package viper.silicon.supporters
 
 import viper.silver.ast
 import viper.silicon.decider.RecordedPathConditions
+import viper.silicon.interfaces.state.NonQuantifiedChunk
 import viper.silicon.state.{BasicChunk, Heap, Identifier, State, Store, terms}
 import viper.silicon.resources.{FieldID, PredicateID}
 import viper.silicon.verifier.Verifier
 import viper.silver.ast.{NoInfo, NoPosition, NoTrafos}
+
+sealed trait TranslateContext
+case class LValue() extends TranslateContext
+case class RValue() extends TranslateContext
+case class Binding() extends TranslateContext
 
 // should we use the path conditions from the state?
 final class Translator(s: State, pcs: RecordedPathConditions) {
   private var translatingVars: Seq[terms.Term] = Seq()
   private var translatingRegexSingleton: Boolean = false
   // this is, to some extent, a stub method currently
-  def translate(t: terms.Term): Option[ast.Exp] = {
+  def translate(t: terms.Term, useSnapshot: Boolean = false): Option[ast.Exp] = {
     t match {
       case terms.Null() => Some(ast.NullLit()())
       case terms.False() => Some(ast.FalseLit()())
@@ -129,8 +135,23 @@ final class Translator(s: State, pcs: RecordedPathConditions) {
           case _ => selectShortestField(variableResolver(terms.Var(name, sort)))
         }
       case terms.App(fun, ts) =>
-        println(s"app: $t")
-        Some(ast.FuncApp(fun.id.name, ts.flatMap(translate))(NoPosition, NoInfo, typeOfSort(fun.resultSort), NoTrafos))
+        def unrollSnapshotList(t: terms.Term): List[terms.Term] =
+          t match {
+            case terms.Combine(l, r) => l :: unrollSnapshotList(r)
+            case _ => List(t)
+          }
+        if (unrollSnapshotList(ts(0)).forall {
+          t =>
+            s.h.values.exists {
+              case c: NonQuantifiedChunk =>
+                c.snap == t
+              case _ => false
+            }
+        }) {
+          Some(ast.FuncApp(fun.id.name, ts.flatMap(translate(_, useSnapshot)))(NoPosition, NoInfo, typeOfSort(fun.resultSort), NoTrafos))
+        } else {
+          Some(ast.Old(ast.FuncApp(fun.id.name, ts.flatMap(translate(_, useSnapshot)))(NoPosition, NoInfo, typeOfSort(fun.resultSort), NoTrafos))())
+        }
       case terms.Unit => None
       case terms.SortWrapper(t, sort) =>
         // TODO Jasper: here is the problem
@@ -210,8 +231,6 @@ final class Translator(s: State, pcs: RecordedPathConditions) {
   // TODO: the invocation of getAccessibilityPredicates seems a bit wrong
   // TODO: make brancher translate its input (at the branch site)
   private def variableResolver(variable: terms.Term, lenient: Boolean = false): Seq[ast.Exp] = {
-    print("resolve: ")
-    println(variable)
 
     // if we're already translating this variable
     if (translatingVars.exists(t => t.toString == variable.toString && t.sort == variable.sort) && !translatingRegexSingleton)
@@ -227,10 +246,7 @@ final class Translator(s: State, pcs: RecordedPathConditions) {
     val pcsEquivalentVariables: Seq[terms.Term] =
       pcs.getEquivalentVariables(variable, lenient) :+ variable
 
-    println(s"pcs equiv: $pcsEquivalentVariables")
-
     def resolveFromAlias(alias: (terms.Term, String, terms.Sort), candidateResolvedVariables: Seq[ast.Exp]) = {
-      println(s"ALIAS: ${alias}")
       if (translatingVars.exists(t => t.toString == alias._1.toString && t.sort == alias._1.sort)) {
         candidateResolvedVariables
       } else {
@@ -266,7 +282,6 @@ final class Translator(s: State, pcs: RecordedPathConditions) {
           if (translatingVars.exists(t => t.toString == term.toString && t.sort == term.sort)) {
             candidateResolvedVariables
           } else {
-            println(s"term: $term")
             translatingVars = translatingVars :+ term
             // Attempt normal variable resolution (looking in
             // both heaps, followed by the store)
@@ -280,14 +295,12 @@ final class Translator(s: State, pcs: RecordedPathConditions) {
               //
               // Use caution here!
               case None => {
-                println("NONE")
                 regexVariableResolver(term) match {
                   case Some(resolvedVariable) => {
                     translatingVars = translatingVars.filter(v => v != term)
                     resolvedVariable +: candidateResolvedVariables
                   }
                   case None => {
-                    println("NONE")
                     translatingVars = translatingVars.filter(v => v != term)
                     candidateResolvedVariables
                   }
@@ -297,8 +310,7 @@ final class Translator(s: State, pcs: RecordedPathConditions) {
           }
     ) ++ {
       translatingVars = translatingVars :+ variable
-      heapAliases.foldRight[Seq[ast.Exp]](Seq())(resolveFromAlias) ++
-        oldHeapAliases.foldRight[Seq[ast.Exp]](Seq())(resolveFromAlias).map(ast.Old(_)())
+      heapAliases.foldRight[Seq[ast.Exp]](Seq())(resolveFromAlias) ++ oldHeapAliases.foldRight[Seq[ast.Exp]](Seq())(resolveFromAlias).map(ast.Old(_)())
     } match {
       case Seq() => {
         translatingVars = translatingVars.filter(v => v != variable)
